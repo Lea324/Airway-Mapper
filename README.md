@@ -40,8 +40,11 @@ Day/Night Mode: Optimize viewing for different lighting conditions
 
 # Search & Analysis
 Airport Search: Find routes by airport codes
+
 Route Highlighting: Selected routes stand out with custom styling
+
 Network Analysis: Visualize hub-and-spoke systems
+
 Connection Mapping: See airport interconnections
 
 # Customization
