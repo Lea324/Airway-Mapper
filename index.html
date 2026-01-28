@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Mapping US Big-3 Airline Routes</title>
+    <meta charset="utf-8" />
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.2/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.2/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-ajax/2.1.0/leaflet.ajax.min.js"></script>
+    
+    <link rel="stylesheet" href="./leaflet/map.css" />
+    
+    <style>
+      /* Keep all original CSS styles */
+      html, body {
+        height: 100%;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: #333;
+        background-color: white;
+        transition: background-color 0.5s, color 0.5s;
+      }
+
+      body.night-mode {
+        color: #ccc;
+        background-color: #111;
+      }
+
+      #container {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      #sidebar {
+        width: 33%;
+        background: white;
+        padding: 20px;
+        box-sizing: border-box;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+        transition: background-color 0.5s, color 0.5s;
+      }
+
+      body.night-mode #sidebar {
+        background: #111;
+        color: #ccc;
+      }
+
+      #map {
+        width: 67%;
+        height: 100%;
+      }
+
+      .hovered {
+        cursor: pointer;
+      }
+
+      /* Airport label styles */
+      .leaflet-div-icon.codes {
+        background: transparent !important;
+        border: none !important;
+      }
+
+      .airport-label {
+        font-family: Arial, sans-serif;
+        font-size: 11px;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+        color: #333;
+        transition: color 0.5s, text-shadow 0.5s;
+      }
+
+      body.night-mode .airport-label {
+        color: white;
+        text-shadow: 1px 1px 2px black, -1px -1px 2px black, 1px -1px 2px black, -1px 1px 2px black;
+      }
+
+      .control-section {
+        background: rgba(240, 240, 240, 0.9);
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.5s, box-shadow 0.5s;
+      }
+
+      body.night-mode .control-section {
+        background: rgba(40, 40, 40, 0.8);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .control-section h3 {
+        margin-top: 0;
+        color: #0088cc;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 8px;
+        margin-bottom: 15px;
+        font-size: 16px;
+        transition: color 0.5s, border-color 0.5s;
+      }
+
+      body.night-mode .control-section h3 {
+        color: #00ffff;
+        border-bottom: 1px solid #333;
+      }
+
+      .day-night-toggle {
+        display: flex;
+        background: #f0f0f0;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 10px;
+        transition: background-color 0.5s;
+      }
+
+      body.night-mode .day-night-toggle {
+        background: #222;
+      }
+
+      .day-night-toggle button {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        background: transparent;
+        color: #666;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: color 0.5s, background-color 0.5s;
+      }
+
+      body.night-mode .day-night-toggle button {
+        color: #ccc;
+      }
+
+      .day-night-toggle button.active {
+        background: #0088cc;
+        color: white;
+      }
+
+      body.night-mode .day-night-toggle button.active {
+        background: #00aaff;
+      }
+
+      .day-night-toggle button:hover:not(.active) {
+        background: #e0e0e0;
+      }
+
+      body.night-mode .day-night-toggle button:hover:not(.active) {
+        background: #333;
+      }
+
+      .month-selector {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+
+      .month-selector button {
+        padding: 8px 5px;
+        border: none;
+        background: #f0f0f0;
+        color: #666;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background-color 0.5s, color 0.5s;
+      }
+
+      body.night-mode .month-selector button {
+        background: #222;
+        color: #ccc;
+      }
+
+      .month-selector button.active {
+        background: #0088cc;
+        color: white;
+      }
+
+      body.night-mode .month-selector button.active {
+        background: #00aaff;
+      }
+
+      .month-selector button:hover:not(.active) {
+        background: #e0e0e0;
+      }
+
+      body.night-mode .month-selector button:hover:not(.active) {
+        background: #333;
+      }
+
+      .airport-selector {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+      }
+
+      .airport-selector h4 {
+        grid-column: span 2;
+        margin: 0 0 10px 0;
+        color: #0088cc;
+        transition: color 0.5s;
+      }
+
+      body.night-mode .airport-selector h4 {
+        color: #00ffff;
+      }
+
+      .airport-input {
+        position: relative;
+      }
+
+      .airport-input label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 13px;
+        color: #666;
+        transition: color 0.5s;
+      }
+
+      body.night-mode .airport-input label {
+        color: #aaa;
+      }
+
+      .airport-input input {
+        width: 100%;
+        padding: 10px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        color: #333;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: background-color 0.5s, border-color 0.5s, color 0.5s;
+      }
+
+      body.night-mode .airport-input input {
+        background: #222;
+        border: 1px solid #333;
+        color: #ccc;
+      }
+
+      .airport-input input:focus {
+        outline: none;
+        border-color: #0088cc;
+        box-shadow: 0 0 0 2px rgba(0, 136, 204, 0.2);
+      }
+
+      body.night-mode .airport-input input:focus {
+        border-color: #00aaff;
+        box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.2);
+      }
+
+      .aircraft-selector {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .aircraft-option {
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        padding: 15px 5px;
+        cursor: pointer;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 60px;
+        transition: background-color 0.5s, border-color 0.5s;
+      }
+
+      body.night-mode .aircraft-option {
+        background: #222;
+        border: 2px solid #333;
+      }
+
+      .aircraft-option.active {
+        border-color: #0088cc;
+        background: rgba(0, 136, 204, 0.1);
+      }
+
+      body.night-mode .aircraft-option.active {
+        border-color: #00aaff;
+        background: rgba(0, 170, 255, 0.1);
+      }
+
+      .aircraft-option:hover {
+        background: #f5f5f5;
+      }
+
+      body.night-mode .aircraft-option:hover {
+        background: #2a2a2a;
+      }
+
+      .aircraft-option .title {
+        font-weight: 600;
+        color: #0088cc;
+        font-size: 14px;
+        text-align: center;
+        width: 100%;
+        transition: color 0.5s;
+      }
+
+      body.night-mode .aircraft-option .title {
+        color: #00ffff;
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .btn {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        transition: background-color 0.5s, color 0.5s;
+      }
+
+      .btn-primary {
+        background: #0088cc;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #006699;
+      }
+
+      body.night-mode .btn-primary {
+        background: #00aaff;
+      }
+
+      body.night-mode .btn-primary:hover {
+        background: #0088cc;
+      }
+
+      .btn-secondary {
+        background: #e0e0e0;
+        color: #666;
+      }
+
+      .btn-secondary:hover {
+        background: #d0d0d0;
+      }
+
+      body.night-mode .btn-secondary {
+        background: #444;
+        color: #ccc;
+      }
+
+      body.night-mode .btn-secondary:hover {
+        background: #555;
+      }
+
+      #current-status p {
+        margin: 8px 0;
+        font-size: 14px;
+      }
+
+      #current-status strong {
+        color: #0088cc;
+        transition: color 0.5s;
+      }
+
+      body.night-mode #current-status strong {
+        color: #00ffff;
+      }
+
+      #current-status span {
+        color: #444;
+        transition: color 0.5s;
+      }
+
+      body.night-mode #current-status span {
+        color: #ddd;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="container">
+      <div id="sidebar">
+        <div class="control-section">
+          <h3>Time Settings</h3>
+          <div class="day-night-toggle">
+            <button class="active" id="btn-day">Day</button>
+            <button id="btn-night">Night</button>
+          </div>
+          <div class="month-selector" id="month-selector"></div>
+        </div>
+
+        <div class="control-section">
+          <h3>Flight Route</h3>
+          <div class="airport-selector">
+            <h4>Select Departure & Arrival Airports</h4>
+            <div class="airport-input">
+              <label for="departure">Departure Airport</label>
+              <input type="text" id="departure" placeholder="Enter airport code (e.g., JFK)">
+            </div>
+            <div class="airport-input">
+              <label for="arrival">Arrival Airport</label>
+              <input type="text" id="arrival" placeholder="Enter airport code (e.g., LAX)">
+            </div>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-primary" id="btn-find-route">Find Route</button>
+            <button class="btn btn-secondary" id="btn-clear-route">Clear</button>
+          </div>
+          <div id="search-results" style="margin-top: 10px; display: none;">
+            <p id="result-count" style="font-size: 12px; color: #666;"></p>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h3>Aircraft Type</h3>
+          <div class="aircraft-selector">
+            <div class="aircraft-option active" id="narrow-body">
+              <div class="title">Narrow Body</div>
+            </div>
+            <div class="aircraft-option" id="wide-body">
+              <div class="title">Wide Body</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h3>Current Settings</h3>
+          <div id="current-status">
+            <p><strong>Time:</strong> <span id="current-time">Day</span></p>
+            <p><strong>Month:</strong> <span id="current-month">All Months</span></p>
+            <p><strong>Aircraft:</strong> <span id="current-aircraft">Narrow Body</span></p>
+            <p><strong>Search Results:</strong> <span id="search-status">None</span></p>
+          </div>
+        </div>
+      </div>
+      
+      <div id="map"></div>
+    </div>
+
+    <script type="module">
+      import { getMap } from "./leaflet/map.js";
+
+      // Global variables
+      const worldBounds = [
+        [-90, -180],
+        [90, 180],
+      ];
+
+      const map = L.map("map", {
+        zoomControl: false,
+        worldCopyJump: false,
+        minZoom: 2,
+        maxBounds: worldBounds,
+        maxBoundsViscosity: 1.0,
+      }).setView([38, -10], 2);
+
+      map.on("drag", () => {
+        map.panInsideBounds(worldBounds, { animate: false });
+      });
+
+      map.createPane("airports");
+      map.getPane("airports").style.zIndex = 998;
+
+      map.createPane("circles");
+      map.getPane("circles").style.zIndex = 999;
+
+      // Day mode basemap (light)
+      const dayBasemap = L.tileLayer(
+        "https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+        {
+          maxZoom: 20,
+          noWrap: true,
+        }
+      );
+
+      // Night mode basemap (dark)
+      const nightBasemap = L.tileLayer(
+        "https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
+        {
+          maxZoom: 20,
+          noWrap: true,
+        }
+      );
+
+      dayBasemap.addTo(map);
+      let currentBasemap = 'day';
+
+      // Airway styles
+      const AIRWAY_HIDDEN_STYLE = { color: "#ffffff", weight: 1, opacity: 0.05 };
+      const AIRWAY_HIGHLIGHT_STYLE = { color: "#00ffff", weight: 3, opacity: 1.0 };
+      const AIRWAY_SELECTED_STYLE = { color: "#6a11cb", weight: 4, opacity: 0.8 };
+
+      // Store all airports and routes data
+      let allAirports = [];
+      let allRoutes = [];
+      let highlightedLayers = [];
+
+      // Update airport label colors
+      function updateAirportLabels() {
+        const isNightMode = document.body.classList.contains("night-mode");
+        const airportLabels = document.querySelectorAll('.leaflet-div-icon.codes');
+        
+        airportLabels.forEach(labelDiv => {
+          const span = labelDiv.querySelector('span');
+          if (span) {
+            span.className = 'airport-label';
+          } else {
+            labelDiv.innerHTML = `<span class="airport-label">${labelDiv.innerHTML}</span>`;
+          }
+        });
+      }
+
+      // Load airline layer
+      async function loadAirlineLayer(name) {
+        const layer = await getMap(map, name);
+        
+        // Collect airports and routes data
+        if (layer._airportsData && layer._routesData) {
+          allAirports = allAirports.concat(layer._airportsData.features);
+          allRoutes = allRoutes.concat(layer._routesData.features);
+        }
+
+        // Add mouse interaction for routes
+        layer.eachLayer((featureLayer) => {
+          const isAirport = featureLayer.feature && 
+                           featureLayer.feature.geometry && 
+                           featureLayer.feature.geometry.type === 'Point';
+          
+          const isClearAirport = featureLayer.options && 
+                                featureLayer.options.pane === 'circles' &&
+                                featureLayer.feature && 
+                                featureLayer.feature.geometry.type === 'Point';
+          
+          const isLabel = featureLayer.options && 
+                         featureLayer.options.icon && 
+                         featureLayer.options.icon.options &&
+                         featureLayer.options.icon.options.className === 'codes';
+
+          const shouldApplyHover = isAirport || isClearAirport || isLabel;
+
+          if (shouldApplyHover && featureLayer.setStyle) {
+            featureLayer.setStyle(AIRWAY_HIDDEN_STYLE);
+
+            featureLayer.on("mouseover", (e) => {
+              if (e.target.setStyle) e.target.setStyle(AIRWAY_HIGHLIGHT_STYLE);
+              e.target.bringToFront();
+              map.getContainer().classList.add("hovered");
+            });
+
+            featureLayer.on("mouseout", (e) => {
+              if (e.target.setStyle) e.target.setStyle(AIRWAY_HIDDEN_STYLE);
+              map.getContainer().classList.remove("hovered");
+            });
+          }
+        });
+
+        setTimeout(updateAirportLabels, 100);
+        return layer;
+      }
+
+      // Load all layers
+      const all = await loadAirlineLayer("all");
+      const american = await loadAirlineLayer("american");
+      const delta = await loadAirlineLayer("delta");
+      const united = await loadAirlineLayer("united");
+
+      united.addTo(map);
+
+      const mapLayers = {
+        All: all,
+        American: american,
+        Delta: delta,
+        United: united,
+      };
+
+      // Legend
+      const legend = L.control({ position: "topright" });
+      legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "legend");
+        div.innerHTML =
+          '<i style="background:#ff0000"></i><span>Chicago</span><br>' +
+          '<i style="background:#ffa500"></i><span>Houston</span><br>' +
+          '<i style="background:#ffff00"></i><span>Denver</span><br>' +
+          '<i style="background:#6cff7d"></i><span>Newark</span><br>' +
+          '<i style="background:#426ae1"></i><span>San Francisco</span><br>' +
+          '<i style="background:#fd68b3"></i><span>Washington DC</span><br>' +
+          '<i style="background:#00ffff"></i><span>Los Angeles</span>';
+        return div;
+      };
+      legend.addTo(map);
+
+      // Month selector
+      const months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      ];
+
+      const monthContainer = document.getElementById("month-selector");
+      months.forEach(month => {
+        const button = document.createElement("button");
+        button.textContent = month;
+        button.dataset.month = month;
+        monthContainer.appendChild(button);
+      });
+
+      // DOM elements
+      const btnDay = document.getElementById("btn-day");
+      const btnNight = document.getElementById("btn-night");
+      const btnFindRoute = document.getElementById("btn-find-route");
+      const btnClearRoute = document.getElementById("btn-clear-route");
+      const narrowBody = document.getElementById("narrow-body");
+      const wideBody = document.getElementById("wide-body");
+      const departureInput = document.getElementById("departure");
+      const arrivalInput = document.getElementById("arrival");
+      const currentTime = document.getElementById("current-time");
+      const currentMonth = document.getElementById("current-month");
+      const currentAircraft = document.getElementById("current-aircraft");
+      const searchStatus = document.getElementById("search-status");
+
+      let selectedMonth = null;
+
+      // Route search functionality
+      function searchRoutes(departureCode, arrivalCode) {
+        // Clear previous highlights
+        clearHighlightedRoutes();
+        
+        // Find matching routes
+        const matchedRoutes = [];
+        
+        if (departureCode && arrivalCode) {
+          // Search for specific route
+          const routeId1 = `${departureCode}_${arrivalCode}`;
+          const routeId2 = `${arrivalCode}_${departureCode}`;
+          
+          allRoutes.forEach(route => {
+            if (route.id === routeId1 || route.id === routeId2) {
+              matchedRoutes.push(route);
+            }
+          });
+        } else if (departureCode && !arrivalCode) {
+          // Search for all routes departing from airport
+          allRoutes.forEach(route => {
+            const [dep, arr] = route.id.split("_");
+            if (dep === departureCode) {
+              matchedRoutes.push(route);
+            }
+          });
+        } else if (!departureCode && arrivalCode) {
+          // Search for all routes arriving at airport
+          allRoutes.forEach(route => {
+            const [dep, arr] = route.id.split("_");
+            if (arr === arrivalCode) {
+              matchedRoutes.push(route);
+            }
+          });
+        }
+        
+        return matchedRoutes;
+      }
+
+      // Highlight routes on map
+      function highlightRoutes(routes) {
+        // Clear previous highlights
+        clearHighlightedRoutes();
+        
+        // Create new layers for each matched route
+        routes.forEach(route => {
+          const lineLayer = L.geoJSON(route, {
+            style: AIRWAY_SELECTED_STYLE
+          }).addTo(map);
+          
+          // Get airport coordinates
+          const [depCode, arrCode] = route.id.split("_");
+          
+          // Find departure airport
+          const depAirport = allAirports.find(airport => airport.id === depCode);
+          const arrAirport = allAirports.find(airport => airport.id === arrCode);
+          
+          // Highlight airports
+          if (depAirport) {
+            const depMarker = L.circleMarker([depAirport.geometry.coordinates[1], depAirport.geometry.coordinates[0]], {
+              radius: 5,
+              color: "#6a11cb",
+              weight: 2,
+              fillColor: "#6a11cb",
+              fillOpacity: 0.7,
+              pane: "airports"
+            }).addTo(map);
+            highlightedLayers.push(depMarker);
+          }
+          
+          if (arrAirport) {
+            const arrMarker = L.circleMarker([arrAirport.geometry.coordinates[1], arrAirport.geometry.coordinates[0]], {
+              radius: 5,
+              color: "#6a11cb",
+              weight: 2,
+              fillColor: "#6a11cb",
+              fillOpacity: 0.7,
+              pane: "airports"
+            }).addTo(map);
+            highlightedLayers.push(arrMarker);
+          }
+          
+          highlightedLayers.push(lineLayer);
+        });
+        
+        return routes.length;
+      }
+
+      // Clear highlighted routes
+      function clearHighlightedRoutes() {
+        highlightedLayers.forEach(layer => {
+          map.removeLayer(layer);
+        });
+        highlightedLayers = [];
+      }
+
+      // Find airport coordinates
+      function findAirportCoordinates(airportCode) {
+        const airport = allAirports.find(airport => airport.id === airportCode);
+        if (airport && airport.geometry && airport.geometry.coordinates) {
+          return {
+            lat: airport.geometry.coordinates[1],
+            lng: airport.geometry.coordinates[0]
+          };
+        }
+        return null;
+      }
+
+      // Center map on airport or route
+      function centerOnSearchResults(departureCode, arrivalCode, routeCount) {
+        if (departureCode && arrivalCode && routeCount > 0) {
+          // If both airports specified and routes found, center on midpoint
+          const depCoords = findAirportCoordinates(departureCode);
+          const arrCoords = findAirportCoordinates(arrivalCode);
+          
+          if (depCoords && arrCoords) {
+            const midLat = (depCoords.lat + arrCoords.lat) / 2;
+            const midLng = (depCoords.lng + arrCoords.lng) / 2;
+            map.flyTo([midLat, midLng], 5);
+          }
+        } else if (departureCode && !arrivalCode) {
+          // Center on departure airport
+          const coords = findAirportCoordinates(departureCode);
+          if (coords) {
+            map.flyTo([coords.lat, coords.lng], 8);
+          }
+        } else if (!departureCode && arrivalCode) {
+          // Center on arrival airport
+          const coords = findAirportCoordinates(arrivalCode);
+          if (coords) {
+            map.flyTo([coords.lat, coords.lng], 8);
+          }
+        }
+      }
+
+      // Day/Night mode functions
+      function switchToDayMode() {
+        document.body.classList.remove("night-mode");
+        window.isNightMode = false;
+        dayBasemap.addTo(map);
+        nightBasemap.remove();
+        currentBasemap = 'day';
+        setTimeout(updateAirportLabels, 100);
+      }
+
+      function switchToNightMode() {
+        document.body.classList.add("night-mode");
+        window.isNightMode = true;
+        nightBasemap.addTo(map);
+        dayBasemap.remove();
+        currentBasemap = 'night';
+        setTimeout(updateAirportLabels, 100);
+      }
+
+      // Event listeners for Day/Night toggle
+      btnDay.addEventListener("click", () => {
+        btnDay.classList.add("active");
+        btnNight.classList.remove("active");
+        currentTime.textContent = "Day";
+        switchToDayMode();
+      });
+
+      btnNight.addEventListener("click", () => {
+        btnNight.classList.add("active");
+        btnDay.classList.remove("active");
+        currentTime.textContent = "Night";
+        switchToNightMode();
+      });
+
+      // Event listeners for month selector
+      monthContainer.querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          monthContainer.querySelectorAll("button").forEach(btn => {
+            btn.classList.remove("active");
+          });
+          
+          if (button.classList.contains("active")) {
+            button.classList.remove("active");
+            selectedMonth = null;
+            currentMonth.textContent = "All Months";
+          } else {
+            button.classList.add("active");
+            selectedMonth = button.dataset.month;
+            currentMonth.textContent = selectedMonth;
+          }
+        });
+      });
+
+      // Event listeners for aircraft selector
+      narrowBody.addEventListener("click", () => {
+        narrowBody.classList.add("active");
+        wideBody.classList.remove("active");
+        currentAircraft.textContent = "Narrow Body";
+      });
+
+      wideBody.addEventListener("click", () => {
+        wideBody.classList.add("active");
+        narrowBody.classList.remove("active");
+        currentAircraft.textContent = "Wide Body";
+      });
+
+      // Event listener for Find Route button
+      btnFindRoute.addEventListener("click", () => {
+        const departure = departureInput.value.trim().toUpperCase();
+        const arrival = arrivalInput.value.trim().toUpperCase();
+        
+        if (departure || arrival) {
+          // Search for routes
+          const matchedRoutes = searchRoutes(departure, arrival);
+          
+          // Highlight routes on map
+          const routeCount = highlightRoutes(matchedRoutes);
+          
+          // Update search status
+          if (routeCount > 0) {
+            searchStatus.textContent = `Found ${routeCount} route(s)`;
+            searchStatus.style.color = "#0088cc";
+          } else {
+            searchStatus.textContent = "No routes found";
+            searchStatus.style.color = "#ff0000";
+          }
+          
+          // Center map on results
+          centerOnSearchResults(departure, arrival, routeCount);
+          
+        } else {
+          searchStatus.textContent = "Please enter at least one airport code";
+          searchStatus.style.color = "#ff0000";
+        }
+      });
+
+      // Event listener for Clear button
+      btnClearRoute.addEventListener("click", () => {
+        departureInput.value = "";
+        arrivalInput.value = "";
+        clearHighlightedRoutes();
+        searchStatus.textContent = "None";
+        searchStatus.style.color = "";
+      });
+
+      // Update airport labels on map move
+      map.on('moveend', updateAirportLabels);
+      map.on('zoomend', updateAirportLabels);
+
+      // Initialize map size
+      map.invalidateSize();
+      
+      // Initial airport label update
+      setTimeout(updateAirportLabels, 500);
+    </script>
+  </body>
+</html>
