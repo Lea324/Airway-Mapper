@@ -11,24 +11,24 @@ I have modified the interface and added new features, while retaining the origin
 -------------------------------------------------------------------------------------------------------------------------------
 
 ##  Project Structure
-├── data/                     # Airline datasets
+├── data/                     
 │   ├── all/
 │   ├── american/
 │   ├── delta/
 │   ├── old/
 │   ├── united/
-│   ├── airpot-codes.csv      # Airport reference database
-│   ├── data_analysis.ipynb   # Exploratory data analysis
-│   └── routes.dat            # Flight route dataset
-├── leaflet/                  # Leaflet-based mapping components
+│   ├── airpot-codes.csv      
+│   ├── data_analysis.ipynb   
+│   └── routes.dat            
+├── leaflet/                 
 │   ├── leaflet.ipynb
 │   ├── map.css
 │   └── map.js
-├── python/                   # Python utilities for preprocessing
+├── python/                   
 │   └── ipyleaflet.ipynb
-├── LICENSE                   # MIT License
-├── README.md                 # Project documentation
-└── index.html                # Main application entry point
+├── LICENSE                  
+├── README.md                
+└── index.html                
 
 --------------------------------------------------------------------------------------------------------------------------------
 
