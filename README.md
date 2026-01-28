@@ -23,7 +23,7 @@ I have modified the interface and added new features, while retaining the origin
 
 │   ├── united/
 
-│   ├── airpot-codes.csv
+│   ├── airport-codes.csv
 
 │   ├── data_analysis.ipynb
 
